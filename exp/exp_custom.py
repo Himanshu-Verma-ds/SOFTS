@@ -17,13 +17,14 @@ warnings.filterwarnings('ignore')
 
 
 class Dataset_Custom(Dataset):
-    def __init__(self, data, seq_len, pred_len, freq='h', mode='pred', stride=1):
+    def __init__(self, data, seq_len, pred_len, freq='h', mode='pred', stride=1,  output_chunk_shift= 0):
         self.data = data
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.freq = freq
         self.mode = mode
         self.stride = stride
+        self.output_chunk_shift = output_chunk_shift
         self.__read_data__()
 
     def __read_data__(self):
@@ -45,7 +46,7 @@ class Dataset_Custom(Dataset):
         if self.mode != 'pred':
             s_begin = index * self.stride
             s_end = s_begin + self.seq_len
-            r_begin = s_end
+            r_begin = s_end + self.output_chunk_shift
             r_end = r_begin + self.pred_len
 
             seq_x = self.data_x[s_begin:s_end]
@@ -56,15 +57,17 @@ class Dataset_Custom(Dataset):
         else:
             s_begin = index * self.stride
             s_end = s_begin + self.seq_len
+            r_begin = s_end + self.output_chunk_shift
+            r_end = r_begin + self.pred_len
             seq_x = self.data_x[s_begin:s_end]
             seq_x_mark = self.data_stamp[s_begin:s_end]
             return seq_x, seq_x_mark
 
     def __len__(self):
         if self.mode != 'pred':
-            return (len(self.data_x) - self.seq_len - self.pred_len + 1) // self.stride
+            return (len(self.data_x) - self.seq_len - self.output_chunk_shift - self.pred_len + 1) // self.stride
         else:
-            return (len(self.data_x) - self.seq_len + 1) // self.stride
+            return (len(self.data_x) - self.seq_len - self.output_chunk_shift - self.pred_len + 1) // self.stride
 
 
 class Exp_Custom(Exp_Basic):
@@ -87,15 +90,15 @@ class Exp_Custom(Exp_Basic):
 
     def _get_data(self, data, mode, stride=1):
         if mode == 'train':
-            dataset = Dataset_Custom(data, self.args.seq_len, self.args.pred_len, freq=self.args.freq, mode='train',
+            dataset = Dataset_Custom(data, self.args.seq_len, self.args.pred_len, self.args.output_chunk_shift, freq=self.args.freq, mode='train',
                                      stride=1)
             shuffle = True
         elif mode == 'test':
-            dataset = Dataset_Custom(data, self.args.seq_len, self.args.pred_len, freq=self.args.freq, mode='test',
+            dataset = Dataset_Custom(data, self.args.seq_len, self.args.pred_len, self.args.output_chunk_shift, freq=self.args.freq, mode='test',
                                      stride=1)
             shuffle = False
         elif mode == 'pred':
-            dataset = Dataset_Custom(data, self.args.seq_len, self.args.pred_len, freq=self.args.freq, mode='pred',
+            dataset = Dataset_Custom(data, self.args.seq_len, self.args.pred_len, self.args.output_chunk_shift, freq=self.args.freq, mode='pred',
                                      stride=stride)
             shuffle = False
         dataloader = DataLoader(
